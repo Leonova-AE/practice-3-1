@@ -1,102 +1,228 @@
-import { Book, formatBook } from "./task1-types";
-import { createBookFromForm } from "./task4-integration";
-import { filterByTitle, sortBooks } from "./task5-utils";
+import { describe, it, expect } from "vitest";
+import { BookCatalog } from "../src/task6-classes";
+import type { Book } from "../src/task1-types";
 
-/*
-  Реализуйте класс BookCatalog.
+describe("Task 6: Класс BookCatalog", () => {
+  // Тестовые данные
+  const testBooks: Book[] = [
+    { id: "1", title: "TypeScript Guide", authors: ["John Doe"], year: 2023, rating: 4.5 },
+    { id: "2", title: "JavaScript Basics", authors: ["Jane Smith"], year: 2020, rating: 3.0 },
+    { id: "3", title: "Advanced TypeScript", authors: ["John Doe"], year: 2022, rating: 5.0 },
+    { id: "4", title: "Old Book", authors: ["Bob"], year: 2015 },
+    { id: "5", title: "Mystery Novel", authors: ["Charlie"], rating: 2.0 },
+  ];
 
-  Состояние:
-    - books: Book[]        — приватное, снаружи недоступно
-    - id: string           — readonly
+  describe("конструктор", () => {
+    it("должен создавать каталог с начальными книгами", () => {
+      const catalog = new BookCatalog("test-catalog", testBooks);
+      expect(catalog.getBooks()).toEqual(testBooks);
+      expect(catalog.id).toBe("test-catalog");
+    });
 
-  Конструктор: (id: string, books: Book[] = [])
+    it("должен создавать пустой каталог без аргументов", () => {
+      const catalog = new BookCatalog("empty",[]);
+      expect(catalog.getBooks()).toEqual([]);
+      expect(catalog.count).toBe(0);
+    });
 
-  Публичный API:
-    addBook(book: Book): void
-    removeBook(id: string): void
-    getBooks(): Book[]
-    searchByTitle(query: string): Book[]
-    sortBy(sortType: 'year' | 'rating'): Book[]
-    get count(): number
+    it("должен создавать пустой каталог с параметром по умолчанию", () => {
+      // Если конструктор имеет параметр по умолчанию: constructor(books: Book[] = [], id: string)
+      // То можно вызвать с одним аргументом (id), но для этого нужно, чтобы книги были опциональны
+      // Этот тест проверяет, что студент реализовал параметр по умолчанию
+      const catalog = new BookCatalog("default-books", undefined as any);
+      expect(catalog.getBooks()).toEqual([]);
+    });
+  });
 
-  Требования:
-    - addBook / removeBook не мутируют массив, а создают новый
-    - searchByTitle и sortBy переиспользуют filterByTitle / sortBooks
-    - внешний код не может присвоить this.books напрямую
+  describe("метод addBook", () => {
+    it("должен добавлять книгу в конец массива", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const newBook: Book = { id: "6", title: "New Book", authors: ["Alice"], year: 2024 };
+      
+      catalog.addBook(newBook);
+      
+      expect(catalog.count).toBe(testBooks.length + 1);
+      expect(catalog.getBooks()[testBooks.length]).toEqual(newBook);
+    });
 
-  Бонус: класс Book с полями id, title, authors, year?, rating?,
-  методом format() и статическим createFromFormData(FormData).
-*/
+    it("не должен мутировать исходный массив, переданный в конструктор", () => {
+      const originalBooks = [...testBooks];
+      const catalog = new BookCatalog("test", originalBooks);
+      const newBook: Book = { id: "6", title: "New Book", authors: ["Alice"] };
+      
+      catalog.addBook(newBook);
+      
+      // Исходный массив должен остаться без изменений
+      expect(originalBooks.length).toBe(testBooks.length);
+    });
+  });
 
-export class BookCatalog {
-  // поля: books приватное, id только для чтения
-  private books: Book[];
-  readonly id: string;
+  describe("метод removeBook", () => {
+    it("должен удалять книгу по id", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const initialCount = catalog.count;
+      
+      catalog.removeBook("1");
+      
+      expect(catalog.count).toBe(initialCount - 1);
+      expect(catalog.getBooks().find(b => b.id === "1")).toBeUndefined();
+    });
 
-  constructor(id: string, books: Book[] = []) {
-    this.id = id;
-    // делаем копию, чтобы не зависеть от внешнего массива
-    this.books = [...books];
-  }
+    it("должен корректно работать при удалении несуществующей книги", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const initialCount = catalog.count;
+      
+      catalog.removeBook("non-existent-id");
+      
+      expect(catalog.count).toBe(initialCount);
+    });
 
-  addBook(book: Book): void {
-    this.books = [...this.books, book];
-  }
+    it("не должен мутировать исходный массив, переданный в конструктор", () => {
+      const originalBooks = [...testBooks];
+      const catalog = new BookCatalog("test", originalBooks);
+      
+      catalog.removeBook("1");
+      
+      expect(originalBooks.length).toBe(testBooks.length);
+    });
+  });
 
-  // filter тоже возвращает новый массив
-  removeBook(id: string): void {
-    this.books = this.books.filter((b) => b.id !== id);
-  }
+  describe("метод getBooks", () => {
+    it("должен возвращать массив всех книг", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const books = catalog.getBooks();
+      
+      expect(books.length).toBe(testBooks.length);
+      expect(books).toEqual(testBooks);
+    });
 
-  // наружу отдаём копию, а не сам массив
-  getBooks(): Book[] {
-    return [...this.books];
-  }
+    it("должен возвращать пустой массив для пустого каталога", () => {
+      const catalog = new BookCatalog("empty", []);
+      expect(catalog.getBooks()).toEqual([]);
+    });
+  });
 
-  searchByTitle(query: string): Book[] {
-    return this.books.filter(filterByTitle(query));
-  }
+  describe("геттер count", () => {
+    it("должен возвращать количество книг", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      expect(catalog.count).toBe(testBooks.length);
+    });
 
-  // и здесь берём готовую sortBooks из task5-utils
-  sortBy(sortType: "year" | "rating"): Book[] {
-    return sortBooks(this.books, sortType);
-  }
+    it("должен возвращать 0 для пустого каталога", () => {
+      const catalog = new BookCatalog("empty", []);
+      expect(catalog.count).toBe(0);
+    });
 
-  get count(): number {
-    return this.books.length;
-  }
-}
+    it("должен обновляться после добавления книги", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const initialCount = catalog.count;
+      
+      catalog.addBook({ id: "6", title: "New Book", authors: ["Alice"] });
+      
+      expect(catalog.count).toBe(initialCount + 1);
+    });
 
-// Бонус: класс BookClass
-// Название BookClass, чтобы не конфликтовать с интерфейсом Book
-export class BookClass {
-  readonly id: string;
-  title: string;
-  authors: string[];
-  year?: number;
-  rating?: number;
+    it("должен обновляться после удаления книги", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const initialCount = catalog.count;
+      
+      catalog.removeBook("1");
+      
+      expect(catalog.count).toBe(initialCount - 1);
+    });
+  });
 
-  constructor(
-    id: string,
-    title: string,
-    authors: string[],
-    year?: number,
-    rating?: number
-  ) {
-    this.id = id;
-    this.title = title;
-    this.authors = authors;
-    this.year = year;
-    this.rating = rating;
-  }
+  describe("метод searchByTitle", () => {
+    it("должен находить книги по части слова", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.searchByTitle("script");
+      
+      expect(result.map(b => b.id)).toEqual(["1", "2", "3"]);
+    });
 
-  format(): string {
-    return formatBook(this);
-  }
+    it("должен искать без учёта регистра", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.searchByTitle("TYPESCRIPT");
+      
+      expect(result.map(b => b.id)).toEqual(["1", "3"]);
+    });
 
-  // static — вызывается через имя класса: BookClass.createFromFormData(formData)
-  static createFromFormData(formData: FormData): BookClass {
-    const book = createBookFromForm(formData);
-    return new BookClass(book.id, book.title, book.authors, book.year, book.rating);
-  }
-}
+    it("должен возвращать все книги при пустом запросе", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.searchByTitle("");
+      
+      expect(result.length).toBe(testBooks.length);
+    });
+
+    it("должен возвращать пустой массив, если ничего не найдено", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.searchByTitle("python");
+      
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("метод sortBy", () => {
+    it("должен сортировать по году (от новых к старым)", () => {
+      const catalog =new BookCatalog("test", [...testBooks]);
+      const result = catalog.sortBy("year");
+      
+      expect(result.map(b => b.id)).toEqual(["1", "3", "2", "4", "5"]);
+    });
+
+    it("должен сортировать по рейтингу (от высокого к низкому)", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.sortBy("rating");
+      
+      expect(result.map(b => b.id)).toEqual(["3", "1", "2", "5", "4"]);
+    });
+
+    it("должен опускать книги без года в конец при сортировке по году", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.sortBy("year");
+      
+      expect(result[result.length - 1].id).toBe("5");
+    });
+
+    it("должен опускать книги без рейтинга в конец при сортировке по рейтингу", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const result = catalog.sortBy("rating");
+      
+      expect(result[result.length - 1].id).toBe("4");
+    });
+
+    it("не должен мутировать внутренний массив книг", () => {
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const before = catalog.getBooks().map(b => b.id);
+      
+      catalog.sortBy("year");
+      
+      expect(catalog.getBooks().map(b => b.id)).toEqual(before);
+    });
+  });
+
+  describe("инкапсуляция", () => {
+    it("поле books должно быть приватным (проверяется компилятором)", () => {
+      // Этот тест не может проверить приватность в рантайме,
+      // но если студент не сделал поле приватным, тесты не скомпилируются
+      // при попытке обратиться к catalog.books напрямую.
+      // Здесь мы просто проверяем, что доступ идёт через геттер.
+      const catalog = new BookCatalog("test", [...testBooks]);
+      const books = catalog.getBooks();
+      expect(Array.isArray(books)).toBe(true);
+    });
+
+    it("поле id должно быть readonly (проверяется компилятором)", () => {
+      // Аналогично: если студент не сделал поле readonly, компилятор
+      // не даст присвоить catalog.id = "new-id".
+      const catalog = new BookCatalog("test", [...testBooks]);
+      expect(catalog.id).toBe("test");
+    });
+  });
+});
+
+it("поле books должно быть недоступно снаружи", () => {
+  const catalog = new BookCatalog("test");
+  // @ts-expect-error — обращение к приватному полю должно вызывать ошибку
+  const books = catalog.books;
+});
