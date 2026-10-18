@@ -12,8 +12,6 @@ let catalog = new BookCatalog('main', [
   { id: '2', title: 'JavaScript Basics', authors: ['Jane Smith'], year: 2022 },
 ]);
 
-const wishlist = new Wishlist();
-
 const saved = localStorage.getItem('catalog');
 
 if (saved) {
@@ -24,11 +22,35 @@ if (saved) {
   }
 }
 
+const savedWishlist = localStorage.getItem('wishlist');
+
+let favoriteIds: string[] = [];
+
+if (savedWishlist) {
+  const parsed: unknown = JSON.parse(savedWishlist);
+
+  if (
+    Array.isArray(parsed) &&
+    parsed.every(id => typeof id === 'string')
+  ) {
+    favoriteIds = parsed as string[];
+  }
+}
+
+const wishlist = new Wishlist(favoriteIds);
+
 function saveCatalog(): void {
   localStorage.setItem('catalog', JSON.stringify({
     id: catalog.id,
     books: catalog.getBooks(),
   }));
+}
+
+function saveWishlist(): void {
+  localStorage.setItem(
+    'wishlist',
+    JSON.stringify(wishlist.getIds())
+  );
 }
 
 const bookList = document.querySelector('#bookList') as HTMLDivElement;
@@ -75,6 +97,7 @@ function createBookCard(book: Book): HTMLDivElement {
 
   favBtn.addEventListener('click', () => {
     wishlist.toggle(book.id);
+    saveWishlist();
     refreshList();
     renderWishlist();
   });
