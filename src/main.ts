@@ -1,46 +1,36 @@
+
 import './styles.css';
-import { Book } from './task1-types';
+import type { Book } from './task1-types';
 import { applyFilters, filterByAuthor, filterByMinYear } from './task3-filters';
 import { createBookFromForm } from './task4-integration';
 import { filterByTitle, sortBooks } from './task5-utils';
-//TODO 3.0: импортируйте BookCatalog из task6
 import { BookCatalog } from './task6-classes';
+import { Wishlist } from './task7-wishlist';
 
-// TODO 3.1: замените `let catalog: Catalog = {...}` на экземпляр
-// `new BookCatalog([...те же книги...], 'main')`.
-// Тип `Catalog` после замены больше не нужен — уберите импорт.
-
-// в конструкторе сначала id, потом книги
 let catalog = new BookCatalog('main', [
   { id: '1', title: 'TypeScript Guide', authors: ['John Doe'], year: 2024 },
   { id: '2', title: 'JavaScript Basics', authors: ['Jane Smith'], year: 2022 },
 ]);
 
-
-// восстановление из localStorage
-// TODO 3.2: после перехода на класс JSON.parse вернёт объект БЕЗ методов.
+const wishlist = new Wishlist();
 
 const saved = localStorage.getItem('catalog');
+
 if (saved) {
   const parsed = JSON.parse(saved);
-  // в старом формате (без id) не будет parsed.books, поэтому проверяем
+
   if (parsed.books) {
-    // порядок как в конструкторе: сначала id, потом books
     catalog = new BookCatalog(parsed.id, parsed.books);
   }
 }
 
-
-// сохранение В localStorage
-function saveCatalog() {
-  // собираем простые данные явно: id и список книг
+function saveCatalog(): void {
   localStorage.setItem('catalog', JSON.stringify({
     id: catalog.id,
     books: catalog.getBooks(),
   }));
 }
 
-// DOM-элементы
 const bookList = document.querySelector('#bookList') as HTMLDivElement;
 const form = document.querySelector('#bookForm') as HTMLFormElement;
 const filterBtn = document.querySelector('#applyFilters') as HTMLButtonElement;
@@ -50,8 +40,7 @@ const errorMessage = document.querySelector('#errorMessage') as HTMLDivElement;
 const searchInput = document.querySelector('#searchInput') as HTMLInputElement;
 const sortBySelect = document.querySelector('#sortBy') as HTMLSelectElement;
 
-// отрисовка
-function renderBooks(books: Book[]) {
+function renderBooks(books: Book[]): void {
   bookList.innerHTML = '';
 
   if (books.length === 0) {
@@ -75,39 +64,68 @@ function renderBooks(books: Book[]) {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = 'Удалить';
-    deleteBtn.addEventListener('click', () => {
 
-      // TODO 3.3: замените функциональный removeBook на метод класса.      
+    deleteBtn.addEventListener('click', () => {
       catalog.removeBook(book.id);
       saveCatalog();
-      // TODO 3.4: замените вызов Object.values(catalog) на метод каталога.
-      // Таких мест, где вызывается Object.values(catalog), в файле несколько — найдите все.
-      renderBooks(catalog.getBooks());
+      refreshList();
     });
+
     card.append(deleteBtn);
+
+    const favBtn = document.createElement('button');
+
+    favBtn.textContent = wishlist.has(book.id)
+      ? '❤️ В избранном'
+      : '🤍 В избранное';
+
+    favBtn.addEventListener('click', () => {
+      wishlist.toggle(book.id);
+      refreshList();
+    });
+
+    card.append(favBtn);
 
     bookList.append(card);
   });
 }
 
-// Первичная отрисовка
-renderBooks(catalog.getBooks());
+function refreshList(): void {
+  const filters: ((book: Book) => boolean)[] = [];
 
-// обработчик формы
+  if (authorInput.value.trim()) {
+    filters.push(filterByAuthor(authorInput.value.trim()));
+  }
+
+  if (yearInput.value) {
+    filters.push(filterByMinYear(parseInt(yearInput.value, 10)));
+  }
+
+  if (searchInput.value.trim()) {
+    filters.push(filterByTitle(searchInput.value.trim()));
+  }
+
+  const allBooks = catalog.getBooks();
+  const filteredBooks = applyFilters(allBooks, filters);
+
+  renderBooks(
+    sortBooks(filteredBooks, sortBySelect.value as 'year' | 'rating')
+  );
+}
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   errorMessage.textContent = '';
+
   try {
     const formData = new FormData(form);
     const newBook = createBookFromForm(formData);
 
-    // TODO 3.5: замените функциональный addBook на метод класса.
     catalog.addBook(newBook);
-
     saveCatalog();
-    form.reset();
 
-    renderBooks(catalog.getBooks());
+    form.reset();
+    refreshList();
   } catch (error) {
     if (error instanceof Error) {
       errorMessage.textContent = error.message;
@@ -115,20 +133,8 @@ form.addEventListener('submit', (e) => {
   }
 });
 
-// фильтры и сортировка
-function refreshList() {
-  const filters: ((book: Book) => boolean)[] = [];
-
-  if (authorInput.value.trim()) filters.push(filterByAuthor(authorInput.value.trim()));
-  if (yearInput.value) filters.push(filterByMinYear(parseInt(yearInput.value, 10)));
-  if (searchInput.value.trim()) filters.push(filterByTitle(searchInput.value.trim()));
-
-  const allBooks = catalog.getBooks();
-  const filteredBooks = applyFilters(allBooks, filters);
-
-  renderBooks(sortBooks(filteredBooks, sortBySelect.value as 'year' | 'rating'));
-}
-
 filterBtn.addEventListener('click', refreshList);
 searchInput.addEventListener('input', refreshList);
 sortBySelect.addEventListener('change', refreshList);
+
+refreshList();
