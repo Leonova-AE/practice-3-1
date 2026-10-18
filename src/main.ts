@@ -32,6 +32,7 @@ function saveCatalog(): void {
 }
 
 const bookList = document.querySelector('#bookList') as HTMLDivElement;
+const wishlistContainer = document.querySelector('#wishlistContainer') as HTMLDivElement;
 const form = document.querySelector('#bookForm') as HTMLFormElement;
 const filterBtn = document.querySelector('#applyFilters') as HTMLButtonElement;
 const authorInput = document.querySelector('#filterAuthor') as HTMLInputElement;
@@ -39,6 +40,49 @@ const yearInput = document.querySelector('#filterYear') as HTMLInputElement;
 const errorMessage = document.querySelector('#errorMessage') as HTMLDivElement;
 const searchInput = document.querySelector('#searchInput') as HTMLInputElement;
 const sortBySelect = document.querySelector('#sortBy') as HTMLSelectElement;
+
+function createBookCard(book: Book): HTMLDivElement {
+  const card = document.createElement('div');
+  card.className = 'book-card';
+
+  const titleEl = document.createElement('h3');
+  titleEl.textContent = `${book.title} — ${book.authors.join(', ')}${book.year ? `, ${book.year}` : ''}`;
+  card.append(titleEl);
+
+  if (book.rating !== undefined) {
+    const ratingEl = document.createElement('p');
+    ratingEl.textContent = `Рейтинг: ${book.rating}`;
+    card.append(ratingEl);
+  }
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = 'Удалить';
+
+  deleteBtn.addEventListener('click', () => {
+    catalog.removeBook(book.id);
+    saveCatalog();
+    refreshList();
+    renderWishlist();
+  });
+
+  card.append(deleteBtn);
+
+  const favBtn = document.createElement('button');
+
+  favBtn.textContent = wishlist.has(book.id)
+    ? '❤️ В избранном'
+    : '🤍 В избранное';
+
+  favBtn.addEventListener('click', () => {
+    wishlist.toggle(book.id);
+    refreshList();
+    renderWishlist();
+  });
+
+  card.append(favBtn);
+
+  return card;
+}
 
 function renderBooks(books: Book[]): void {
   bookList.innerHTML = '';
@@ -49,44 +93,22 @@ function renderBooks(books: Book[]): void {
   }
 
   books.forEach(book => {
-    const card = document.createElement('div');
-    card.className = 'book-card';
+    bookList.append(createBookCard(book));
+  });
+}
 
-    const titleEl = document.createElement('h3');
-    titleEl.textContent = `${book.title} — ${book.authors.join(', ')}${book.year ? `, ${book.year}` : ''}`;
-    card.append(titleEl);
+function renderWishlist(): void {
+  wishlistContainer.innerHTML = '';
 
-    if (book.rating !== undefined) {
-      const ratingEl = document.createElement('p');
-      ratingEl.textContent = `Рейтинг: ${book.rating}`;
-      card.append(ratingEl);
-    }
+  const favBooks = wishlist.getFavorites(catalog);
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Удалить';
+  if (favBooks.length === 0) {
+    wishlistContainer.textContent = 'Пока ничего не добавлено';
+    return;
+  }
 
-    deleteBtn.addEventListener('click', () => {
-      catalog.removeBook(book.id);
-      saveCatalog();
-      refreshList();
-    });
-
-    card.append(deleteBtn);
-
-    const favBtn = document.createElement('button');
-
-    favBtn.textContent = wishlist.has(book.id)
-      ? '❤️ В избранном'
-      : '🤍 В избранное';
-
-    favBtn.addEventListener('click', () => {
-      wishlist.toggle(book.id);
-      refreshList();
-    });
-
-    card.append(favBtn);
-
-    bookList.append(card);
+  favBooks.forEach(book => {
+    wishlistContainer.append(createBookCard(book));
   });
 }
 
@@ -126,6 +148,7 @@ form.addEventListener('submit', (e) => {
 
     form.reset();
     refreshList();
+    renderWishlist();
   } catch (error) {
     if (error instanceof Error) {
       errorMessage.textContent = error.message;
@@ -138,3 +161,4 @@ searchInput.addEventListener('input', refreshList);
 sortBySelect.addEventListener('change', refreshList);
 
 refreshList();
+renderWishlist();
